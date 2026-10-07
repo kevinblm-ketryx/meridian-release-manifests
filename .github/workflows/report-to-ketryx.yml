@@ -1,0 +1,48 @@
+name: Report release to Ketryx
+
+# Points a Ketryx version at the exact commits listed in a release manifest.
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: Release manifest, e.g. releases/1.2.0.toml
+        required: true
+      version:
+        description: Ketryx version to update, by exact name (not version number) or ID (KXVSN...)
+        required: true
+      dry_run:
+        description: Show what would change, write nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One run at a time, so two runs can't write the same version at once.
+concurrency:
+  group: ketryx-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Report to Ketryx
+        env:
+          # Edit these two lines for your Ketryx instance and project.
+          KETRYX_URL: https://demo.ketryx.com
+          KETRYX_PROJECT_ID: KXPRJ01M4C0TZYSE2CAFM19BNQK6M4P
+          KETRYX_API_KEY: ${{ secrets.KETRYX_API_KEY }}
+          MANIFEST: ${{ inputs.manifest }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
+          python scripts/report_to_ketryx.py "$MANIFEST" --versions "$VERSION" "${args[@]}"
